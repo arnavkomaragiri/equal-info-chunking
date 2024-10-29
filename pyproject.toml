@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "equal-info-chunking"
+version = "0.1.0"
+description = ""
+authors = ["Arnav Komaragiri <komaraac@mail.uc.edu>"]
+license = "Apache-2.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+transformers = "^4.46.0"
+torch = "^2.5.0"
+torchtyping = "^0.1.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
