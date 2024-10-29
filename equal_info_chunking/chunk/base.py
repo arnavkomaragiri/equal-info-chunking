@@ -3,7 +3,7 @@ import torch
 
 # transformers import
 from transformers import AutoModelForCasualLM, AutoTokenizer, GenerationConfig
-from transformers.generation.utils import ModelOutput, GenerateDecoderOnlyOutput
+from transformers.generation.utils import ModelOutput
 
 # type checking
 from typeguard import typechecked
@@ -33,17 +33,22 @@ class BaseChunkingStrategy:
         inputs = tokenizer(prompt, return_tensors="pt")
         if generate:
             generation_config = self.get_gen_config()
-            outputs: GenerateDecoderOnlyOutput = model.generate(
+            outputs: ModelOutput = model.generate(
                 **inputs,
                 generation_config=generation_config
             )
-            assert outputs.logits.shape[0] == 1, f"expected single batch dimension output, received dimension {outputs.logits.shape[0]}"
-            tokens, logits = outputs.sequences[0], outputs.logits[0]
+            tokens = outputs.sequences
+            logits = torch.stack(*outputs.logits).permute(1, 0, 2)
         else:
             with torch.no_grad():
                 outputs: torch.Tensor = model(**inputs, labels=inputs["input_ids"])
-            assert outputs.logits.shape[0] == 1, f"expected single batch dimension output, received dimension {outputs.logits.shape[0]}"
-            tokens, logits = inputs["input_ids"][0], outputs.logits[0]
+            tokens, logits = inputs["input_ids"], outputs.logits
+
+        assert tokens.shape[0] == 1, f"expected single batch dimension tokens, received dimension {tokens.shape[0]}"
+        assert logits.shape[0] == 1, f"expected single batch dimension logits, received dimension {logits.shape[0]}"
+
+        # TODO: figure out how to get batch processing working
+        tokens, logits = tokens[0], logits[0]
         
         base = 0
         for i in range(1, logits.shape[0]):
