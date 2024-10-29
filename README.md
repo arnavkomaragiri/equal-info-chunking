@@ -1,1 +1,2 @@
-# equal-info-chunking
+# Equal Information Chunking
+if you have to ask what this project is, you probably shouldn't be working on it. just dm me or something and ill probably explain it. if you can't dm me, let me first get the code to not-terrible states before working on this :)
