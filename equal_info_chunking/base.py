@@ -8,15 +8,51 @@ from transformers.generation.utils import ModelOutput
 # type checking
 from typeguard import typechecked
 from torchtyping import TensorType, patch_typeguard
-from typing import List, Dict, Union, Iterable
+from typing import List, Dict, Union, Iterable, ForwardRef
 
 # patch typeguard to use torchtyping
 patch_typeguard()
 
+ChatMessages = List[Dict[str, str]]
+
+
+BaseChunkingRef = ForwardRef("BaseChunkingStrategy")
 # base chunking strategy with batch processing
 class BaseChunkingStrategy:
     def __init__(self, max_chunk_size: float):
         self.max_chunk_size = max_chunk_size
+
+    def calibrate(
+            self, 
+            model: AutoModelForCausalLM, 
+            tokenizer: AutoTokenizer, 
+            docs: List[Union[str, ChatMessages]]
+        ) -> BaseChunkingRef:
+        max_chunk_size = 0
+        for d in docs:
+            if isinstance(list):
+                d = tokenizer.apply_chat_template(
+                    d,
+                    tokenize=False,
+                    add_generation_prompt=True
+                )
+            inputs = tokenizer(d, return_tensors="pt")
+            with torch.no_grad():
+                outputs: torch.Tensor = model(**inputs, labels=inputs["input_ids"])
+            tokens = inputs["input_ids"]
+            start_logit = torch.full((outputs.logits.shape[0], 1, outputs.logits.shape[-1]), -torch.inf)
+            batch_idx = torch.arange(outputs.logits.shape[0])
+            start_logit[batch_idx, 0, tokens[batch_idx, 0]] = 1 
+            logits = torch.cat((start_logit, outputs.logits[:, :-1, :]), dim=1)
+            
+            log_probs = torch.log_softmax(logits, dim=-1)
+            probs = torch.exp(log_probs)
+            ent_tensor = probs * log_probs
+            ent_tensor[probs == 0] = 0
+            ent_tensor[log_probs == 0] = 0
+            entropies = -torch.sum(ent_tensor, dim=-1)
+            max_chunk_size = max(max_chunk_size, torch.max(entropies).item())
+        return max_chunk_size
         
     @typechecked
     def get_chunk_size(
@@ -41,7 +77,7 @@ class BaseChunkingStrategy:
             self,
             model: AutoModelForCausalLM,
             tokenizer: AutoTokenizer,
-            prompt: Union[str, List[Dict[str, str]]],
+            prompt: Union[str, ChatMessages],
             generate: bool = True,
             yield_trailing_chunk: bool = False,
             **kwargs

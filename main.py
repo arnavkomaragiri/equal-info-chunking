@@ -25,7 +25,7 @@ if __name__ == "__main__":
             bnb_4bit_compute_dtype=torch.float16
         )
         kwargs['quantization_config'] = config
-    
+
     model = AutoModelForCausalLM.from_pretrained(args.model, low_cpu_mem_usage=True, **kwargs)
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True, use_fast=False)
 
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     prompt = [
         {"role": "system", "content": "Please reason step by step, and put your final answer within \\boxed{}."},
         {"role": "user", "content": args.prompt}
-    ] 
+    ]
 
     print('Entropy Chunking: ' + ('=' * 50))
     iterator = entropy_strategy.iterate(
