@@ -1,6 +1,7 @@
 import torch
 
 from .base import BaseChunkingStrategy
+from .constants import LOG_2
 from typeguard import typechecked
 from torchtyping import TensorType, patch_typeguard
 
@@ -23,4 +24,4 @@ class EntropyChunkingStrategy(BaseChunkingStrategy):
         prods[probs == 0] = 0
         prods[log_probs == 0] = 0
         # compute final entropy
-        return -torch.sum(prods).item()
+        return -torch.sum(prods).item() / LOG_2
