@@ -3,6 +3,7 @@ import argparse
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from equal_info_chunking.entropy import EntropyChunkingStrategy
+from equal_info_chunking.gzip import GZIPChunkingStrategy
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -27,9 +28,18 @@ if __name__ == "__main__":
     model = AutoModelForCausalLM.from_pretrained(args.model, **kwargs)
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True, use_fast=False)
 
-    strategy = EntropyChunkingStrategy(args.chunk_size)
+    entropy_strategy = EntropyChunkingStrategy(args.chunk_size)
+    gzip_strategy = GZIPChunkingStrategy(args.chunk_size)
 
-    for chunk in strategy.iterate(model, tokenizer, args.prompt, generate=args.generate, yield_trailing_chunk=True):
+    print('Entropy Chunking: ' + ('=' * 50))
+    for chunk in entropy_strategy.iterate(model, tokenizer, args.prompt, generate=args.generate, yield_trailing_chunk=True):
+        print('=' * 50)
+        print(tokenizer.batch_decode([chunk])[0])
+        print('=' * 50)
+
+    print()
+    print('GZIP Chunking: ' + ('=' * 50))
+    for chunk in gzip_strategy.iterate(model, tokenizer, args.prompt, generate=args.generate, yield_trailing_chunk=True):
         print('=' * 50)
         print(tokenizer.batch_decode([chunk])[0])
         print('=' * 50)

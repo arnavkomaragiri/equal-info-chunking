@@ -2,7 +2,7 @@
 import torch
 
 # transformers import
-from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig, PreTrainedTokenizer
 from transformers.generation.utils import ModelOutput
 
 # type checking
@@ -19,7 +19,12 @@ class BaseChunkingStrategy:
         self.max_chunk_size = max_chunk_size
         
     @typechecked
-    def get_chunk_size(self, tokens: TensorType["seq"], logits: TensorType["seq", "dim"], start_ptr: int, end_ptr: int) -> bool:
+    def get_chunk_size(
+        self, 
+        tokens: TensorType["seq"], logits: TensorType["seq", "dim"], 
+        start_ptr: int, end_ptr: int,
+        tokenizer: PreTrainedTokenizer
+    ) -> bool:
         raise NotImplementedError("chunk sizing function not implemented")
 
     def on_sequence_end(self):
@@ -62,7 +67,7 @@ class BaseChunkingStrategy:
         else: 
             base, chunk_size = 0, 0
             for i in range(1, logits.shape[0]):
-                chunk_size = self.get_chunk_size(tokens, logits, base, i)
+                chunk_size = self.get_chunk_size(tokens, logits, base, i, tokenizer)
                 if chunk_size > self.max_chunk_size:
                     yield tokens[base:i]
                     base = i
