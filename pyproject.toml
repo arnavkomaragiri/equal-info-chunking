@@ -11,6 +11,8 @@ python = "^3.11"
 transformers = "^4.46.0"
 torch = "^2.5.0"
 torchtyping = "^0.1.5"
+bitsandbytes = "^0.44.1"
+accelerate = "^1.1.1"
 
 
 [build-system]

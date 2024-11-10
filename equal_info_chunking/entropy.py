@@ -13,7 +13,7 @@ class EntropyChunkingStrategy(BaseChunkingStrategy):
         super().__init__(*args, **kwargs)
     
     @typechecked
-    def get_chunk_size(self, tokens: TensorType["seq"], logits: TensorType["seq", "dim"], start_ptr: int, end_ptr: int, tokenizer: PreTrainedTokenizer) -> float:
+    def get_chunk_size(self, tokens: TensorType["seq"], logits: TensorType["seq", "dim"], start_ptr: int, end_ptr: int) -> float:
         # get target logits
         target_logits = logits[start_ptr:end_ptr]
         # get log probs and probs
