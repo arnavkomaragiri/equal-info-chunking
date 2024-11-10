@@ -15,7 +15,7 @@ class EntropyChunkingStrategy(BaseChunkingStrategy):
     @typechecked
     def get_chunk_size(self, tokens: TensorType["seq"], logits: TensorType["seq", "dim"], start_ptr: int, end_ptr: int, tokenizer: PreTrainedTokenizer) -> float:
         # get target logits
-        target_logits = logits[start_ptr:end_ptr+1]
+        target_logits = logits[start_ptr:end_ptr]
         # get log probs and probs
         log_probs = torch.log_softmax(target_logits, dim=-1)
         probs = torch.exp(log_probs)

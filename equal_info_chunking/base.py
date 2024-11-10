@@ -45,8 +45,8 @@ class BaseChunkingStrategy:
                 **inputs,
                 generation_config=generation_config
             )
-            tokens = outputs.sequences
-            logits = torch.stack(*outputs.logits).permute(1, 0, 2)
+            tokens = outputs.sequences[:, inputs['input_ids'].shape[1]:]
+            logits = torch.stack(outputs.logits).permute(1, 0, 2)
         else:
             with torch.no_grad():
                 outputs: torch.Tensor = model(**inputs, labels=inputs["input_ids"])
@@ -67,10 +67,14 @@ class BaseChunkingStrategy:
         else: 
             base, chunk_size = 0, 0
             for i in range(1, logits.shape[0]):
-                chunk_size = self.get_chunk_size(tokens, logits, base, i, tokenizer)
+                # get chunk size including current token
+                chunk_size = self.get_chunk_size(tokens, logits, base, i + 1, tokenizer)
+                # if chunk is larger than max chunk size, yield the chunk without the current token
                 if chunk_size > self.max_chunk_size:
                     yield tokens[base:i]
                     base = i
+
+            # if we have any trailing chunks and we want them, yield them
             if yield_trailing_chunk and base != logits.shape[0] - 1:
                 yield tokens[base:]
 
