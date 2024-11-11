@@ -13,6 +13,7 @@ torch = "^2.5.0"
 torchtyping = "^0.1.5"
 bitsandbytes = "^0.44.1"
 accelerate = "^1.1.1"
+matplotlib = "^3.9.2"
 
 
 [build-system]
