@@ -1,2 +1,2 @@
 # Equal Information Chunking
-Towards data-driven measures of reasoning progress in LLMs.
+Towards compression-based measures of reasoning progress in LLMs. Shannon FTW.
