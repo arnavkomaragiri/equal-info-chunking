@@ -1,2 +1,1 @@
-from .base import BaseChunkingStrategy
-from .entropy import EntropyChunkingStrategy
+from .chunk import BaseChunkingStrategy, EntropyChunkingStrategy, GZIPChunkingStrategy, ChatMessages
