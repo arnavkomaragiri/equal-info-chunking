@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.10"
 transformers = "^4.46.0"
 torch = "^2.5.0"
 torchtyping = "^0.1.5"
