@@ -14,16 +14,16 @@ from typing import List, Union
 
 def plot_size_vs_agreement(
         model: PreTrainedModel, tokenizer: PreTrainedTokenizer, strategy: BaseChunkingStrategy, prompt: Union[str, ChatMessages],
-        generate: bool = False, max_new_tokens: int = 100, step: float = 0.1, label: str = ""
+        generate: bool = False, max_new_tokens: int = 100, tune_chunks: bool = False, step: float = 0.1, label: str = ""
     ):
     max_chunk_size = float(strategy.max_chunk_size)
-    sizes, purities = [], []
+    sizes, agreements = [], []
     num_trials = int(1 // step)
     for n in trange(1, num_trials + 1):
         scale = n * step
         strategy.max_chunk_size = max_chunk_size * scale
 
-        iterator = strategy.iterate(model, tokenizer, prompt, generate=generate, yield_trailing_chunk=True, max_new_tokens=max_new_tokens)
+        iterator = strategy.iterate(model, tokenizer, prompt, generate=generate, yield_trailing_chunk=True, max_new_tokens=max_new_tokens, tune_chunks=tune_chunks)
         cand_chunks = []
         for chunk in iterator:
             cand_chunks += tokenizer.batch_decode([chunk])
@@ -33,8 +33,8 @@ def plot_size_vs_agreement(
 
         agreement = compute_strategy_agreement(cand_chunks, heur_chunks, input_str=cand_str)
         sizes += [strategy.max_chunk_size]
-        purities += [agreement]
-    plt.plot(sizes, purities, label=label)
+        agreements += [agreement]
+    plt.plot(sizes, agreements, label=label)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -45,6 +45,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('-q', '--quantize', action='store_true')
     parser.add_argument('-n', '--max-new-tokens', type=int, default=100)
     parser.add_argument('-w', '--weight', type=float, default=1)
+    parser.add_argument('-t', '--tune-chunks', action='store_true')
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -69,14 +70,14 @@ if __name__ == "__main__":
     entr_strategy = EntropyChunkingStrategy(args.chunk_size).calibrate(model, tokenizer, [prompt], weight=args.weight)
     gzip_strategy = GZIPChunkingStrategy(tokenizer, entr_strategy.max_chunk_size)
 
-    iterator = entr_strategy.iterate(model, tokenizer, prompt, generate=args.generate, yield_trailing_chunk=True, max_new_tokens=args.max_new_tokens)
+    iterator = entr_strategy.iterate(model, tokenizer, prompt, generate=args.generate, yield_trailing_chunk=True, max_new_tokens=args.max_new_tokens, tune_chunks=args.tune_chunks)
     entr_chunks = []
     for chunk in iterator:
         print('=' * 100)
         print(tokenizer.batch_decode([chunk])[0])
         entr_chunks += tokenizer.batch_decode([chunk])
     
-    iterator = gzip_strategy.iterate(model, tokenizer, prompt, generate=args.generate, yield_trailing_chunk=True, max_new_tokens=args.max_new_tokens)
+    iterator = gzip_strategy.iterate(model, tokenizer, prompt, generate=args.generate, yield_trailing_chunk=True, max_new_tokens=args.max_new_tokens, tune_chunks=args.tune_chunks)
     gzip_chunks = []
     for chunk in iterator:
         print('=' * 100)
@@ -96,8 +97,10 @@ if __name__ == "__main__":
     gzip_agreement = compute_strategy_agreement(gzip_chunks, gzip_heur_chunks, input_str=gzip_str)
     print(f"GZIP Chunking Agreement: {100 * gzip_agreement:.5f}%")
 
-    plot_size_vs_agreement(model, tokenizer, entr_strategy, prompt, generate=args.generate, max_new_tokens=args.max_new_tokens, label="Entropy Chunking")
-    plot_size_vs_agreement(model, tokenizer, gzip_strategy, prompt, generate=args.generate, max_new_tokens=args.max_new_tokens, label="GZIP Chunking")
+    plot_size_vs_agreement(model, tokenizer, entr_strategy, prompt, generate=args.generate, max_new_tokens=args.max_new_tokens, label="Entropy Chunking (no tune)")
+    plot_size_vs_agreement(model, tokenizer, gzip_strategy, prompt, generate=args.generate, max_new_tokens=args.max_new_tokens, label="GZIP Chunking (no tune)")
+    plot_size_vs_agreement(model, tokenizer, entr_strategy, prompt, generate=args.generate, max_new_tokens=args.max_new_tokens, tune_chunks=True, label="Entropy Chunking (tune)")
+    plot_size_vs_agreement(model, tokenizer, gzip_strategy, prompt, generate=args.generate, max_new_tokens=args.max_new_tokens, tune_chunks=True, label="GZIP Chunking (tune)")
     plt.xlabel("Max Chunk Size")
     plt.ylabel("Chunking Agreement")
     plt.legend()

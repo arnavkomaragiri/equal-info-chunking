@@ -1,5 +1,7 @@
 # torch import
 import torch
+# heap operations
+import heapq
 
 # transformers import
 from transformers import GenerationConfig, PreTrainedModel, PreTrainedTokenizer, BatchEncoding
@@ -84,6 +86,9 @@ class BaseChunkingStrategy:
     ) -> bool:
         raise NotImplementedError("chunk sizing function not implemented")
 
+    def on_sequence_start(self):
+        raise NotImplementedError("sequence start event function not implemented")
+
     def on_sequence_end(self):
         raise NotImplementedError("sequence end event function not implemented")
 
@@ -93,6 +98,50 @@ class BaseChunkingStrategy:
             output_logits=True,
             return_dict_in_generate=True
         ) 
+
+    @typechecked
+    def stream_chunks(self, tokens: TensorType["seq"], logits: TensorType["seq", "dim"], yield_trailing_chunk: bool = False):
+        try:
+            self.on_sequence_start()
+        except NotImplementedError:
+            # if we don't have a sequence start method implemented don't worry about it
+            pass
+
+        base, chunk_size = 0, 0
+        for i in range(1, logits.shape[0]):
+            # get chunk size including current token
+            chunk_size = self.get_chunk_size(tokens, logits, base, i + 1)
+            # if chunk is larger than max chunk size, yield the chunk without the current token
+            if chunk_size > self.max_chunk_size:
+                yield tokens[base:i], chunk_size
+                base = i
+
+        # if we have any trailing chunks and we want them, yield them
+        if yield_trailing_chunk and base != logits.shape[0] - 1:
+            chunk_size = self.get_chunk_size(tokens, logits, base, logits.shape[0])
+            yield tokens[base:], chunk_size
+
+        try:
+            self.on_sequence_end()
+        except NotImplementedError:
+            # if we don't have a sequence end method implemented don't worry about it
+            pass
+
+    @typechecked
+    def tune_chunks(self, chunks: List[Tuple[TensorType, float]]) -> List[Tuple[TensorType, float]]:
+        if len(chunks) <= 1:
+            return chunks
+        chunk_tensor, chunk_sizes = [list(x) for x in zip(*chunks)]
+
+        for i in range(1, len(chunk_sizes)):
+            prev_size, curr_size = chunk_sizes[i - 1], chunk_sizes[i]
+            if prev_size < curr_size and chunk_tensor[i].shape[0] != 0:
+                chunk_tensor[i - 1] = torch.concat((chunk_tensor[i - 1], chunk_tensor[i][:1]), dim=0)
+                chunk_tensor[i] = chunk_tensor[i][1:]
+            elif prev_size > curr_size and chunk_tensor[i - 1].shape[0] != 0:
+                chunk_tensor[i] = torch.concat((chunk_tensor[i - 1][-1:], chunk_tensor[i]))
+                chunk_tensor[i - 1] = chunk_tensor[i - 1][:-1]
+        return [(c, -1) for c in chunk_tensor]
     
     @typechecked
     def iterate(
@@ -101,6 +150,7 @@ class BaseChunkingStrategy:
             tokenizer: PreTrainedTokenizer,
             prompt: Union[str, ChatMessages],
             generate: bool = True,
+            tune_chunks: bool = False,
             yield_trailing_chunk: bool = False,
             **kwargs
         ) -> Iterable:
@@ -122,24 +172,13 @@ class BaseChunkingStrategy:
         # don't support batch processing since the pad token handling gets overly complex
         tokens, logits = tokens[0], logits[0]
 
-        if tokens.shape[0] <= 1:
-            yield tokens
+        chunks = None
+        if tune_chunks:
+            chunks = list(self.stream_chunks(tokens, logits, yield_trailing_chunk=yield_trailing_chunk))
+            chunks = self.tune_chunks(chunks)
         else:
-            base, chunk_size = 0, 0
-            for i in range(1, logits.shape[0]):
-                # get chunk size including current token
-                chunk_size = self.get_chunk_size(tokens, logits, base, i + 1)
-                # if chunk is larger than max chunk size, yield the chunk without the current token
-                if chunk_size > self.max_chunk_size:
-                    yield tokens[base:i]
-                    base = i
+            chunks = self.stream_chunks(tokens, logits, yield_trailing_chunk=yield_trailing_chunk)
 
-            # if we have any trailing chunks and we want them, yield them
-            if yield_trailing_chunk and base != logits.shape[0] - 1:
-                yield tokens[base:]
+        for c, _ in chunks:
+            yield c
 
-        try:
-            self.on_sequence_end()
-        except NotImplementedError:
-            # if we don't have a sequence end method implemented don't worry about it
-            pass
