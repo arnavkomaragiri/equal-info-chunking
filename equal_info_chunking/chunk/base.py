@@ -14,6 +14,9 @@ from typeguard import typechecked
 from torchtyping import TensorType, patch_typeguard
 from typing import List, Dict, Tuple, Union, Iterable, ForwardRef
 
+# constants
+from .constants import INF
+
 # patch typeguard to use torchtyping
 patch_typeguard()
 
@@ -72,7 +75,10 @@ class BaseChunkingStrategy:
                 )
             inputs = tokenizer(d, return_tensors="pt")
             tokens, logits = self.parallel_infer(model, inputs)
-            max_chunk_size = max(max_chunk_size, max([self.get_chunk_size(tokens[0], logits[0], i, i + 1) for i in range(tokens.shape[1])]))
+            token_sizes = [self.get_chunk_size(tokens[0], logits[0], i, i + 1) for i in range(tokens.shape[1])]
+            token_sizes = [s for s in token_sizes if s < INF]
+            doc_max = max(token_sizes)
+            max_chunk_size = max(max_chunk_size, doc_max)
             
         new_strategy = deepcopy(self)
         new_strategy.max_chunk_size = weight * max_chunk_size
@@ -111,8 +117,10 @@ class BaseChunkingStrategy:
         for i in range(1, logits.shape[0]):
             # get chunk size including current token
             chunk_size = self.get_chunk_size(tokens, logits, base, i + 1)
+            print(chunk_size)
             # if chunk is larger than max chunk size, yield the chunk without the current token
             if chunk_size > self.max_chunk_size:
+                print('yielding')
                 yield tokens[base:i], chunk_size
                 base = i
 

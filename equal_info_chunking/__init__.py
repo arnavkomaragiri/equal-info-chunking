@@ -1,1 +1,1 @@
-from .chunk import BaseChunkingStrategy, EntropyChunkingStrategy, GZIPChunkingStrategy, ChatMessages
+from .chunk import BaseChunkingStrategy, EntropyChunkingStrategy, NLLChunkingStrategy, GZIPChunkingStrategy, ChatMessages

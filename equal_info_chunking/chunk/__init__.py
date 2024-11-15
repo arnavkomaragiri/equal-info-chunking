@@ -1,3 +1,3 @@
 from .base import BaseChunkingStrategy, ChatMessages
-from .entropy import EntropyChunkingStrategy
+from .entropy import EntropyChunkingStrategy, NLLChunkingStrategy
 from .gzip import GZIPChunkingStrategy
