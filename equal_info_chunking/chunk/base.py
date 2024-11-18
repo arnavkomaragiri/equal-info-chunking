@@ -117,10 +117,8 @@ class BaseChunkingStrategy:
         for i in range(1, logits.shape[0]):
             # get chunk size including current token
             chunk_size = self.get_chunk_size(tokens, logits, base, i + 1)
-            print(chunk_size)
             # if chunk is larger than max chunk size, yield the chunk without the current token
             if chunk_size > self.max_chunk_size:
-                print('yielding')
                 yield tokens[base:i], chunk_size
                 base = i
 

@@ -8,7 +8,7 @@ from tqdm import trange
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, PreTrainedModel, PreTrainedTokenizer
 from equal_info_chunking import BaseChunkingStrategy, EntropyChunkingStrategy, NLLChunkingStrategy, GZIPChunkingStrategy, ChatMessages
 from equal_info_chunking.metrics import compute_strategy_agreement
-from heuristic.math_extract_steps import split_solution
+from equal_info_chunking.heuristic import split_solution
 from typing import List, Union
 
 
