@@ -5,6 +5,7 @@ import heapq
 
 # transformers import
 from transformers import GenerationConfig, PreTrainedModel, PreTrainedTokenizer, BatchEncoding
+from transformers.modeling_outputs import BaseModelOutput
 from transformers.generation.utils import ModelOutput
 
 from copy import deepcopy
@@ -35,12 +36,13 @@ class BaseChunkingStrategy:
         self, model: PreTrainedModel, inputs: BatchEncoding, **kwargs
     ) -> Tuple[TensorType["batch", "seq"], TensorType["batch", "seq", "dim"]]:
         with torch.no_grad():
-            outputs: torch.Tensor = model(**inputs, labels=inputs["input_ids"])
-        tokens = inputs["input_ids"]
-        start_logit = torch.full((outputs.logits.shape[0], 1, outputs.logits.shape[-1]), -torch.inf)
-        batch_idx = torch.arange(outputs.logits.shape[0])
+            outputs: BaseModelOutput = model(**inputs, labels=inputs["input_ids"])
+        tokens = inputs["input_ids"].cpu()
+        raw_logits = outputs.logits.cpu()
+        start_logit = torch.full((raw_logits.shape[0], 1, raw_logits.shape[-1]), -torch.inf)
+        batch_idx = torch.arange(raw_logits.shape[0])
         start_logit[batch_idx, 0, tokens[batch_idx, 0]] = 1 
-        logits = torch.cat((start_logit, outputs.logits[:, :-1, :]), dim=1)
+        logits = torch.cat((start_logit, raw_logits[:, :-1, :]), dim=1)
         return tokens, logits
     
     @typechecked
@@ -74,6 +76,7 @@ class BaseChunkingStrategy:
                     add_generation_prompt=True
                 )
             inputs = tokenizer(d, return_tensors="pt")
+            inputs = inputs.to(model.device)
             tokens, logits = self.parallel_infer(model, inputs)
             token_sizes = [self.get_chunk_size(tokens[0], logits[0], i, i + 1) for i in range(tokens.shape[1])]
             token_sizes = [s for s in token_sizes if s < INF]
@@ -166,11 +169,12 @@ class BaseChunkingStrategy:
                 tokenize=False,
                 add_generation_prompt=True
             )
-        inputs = tokenizer(prompt, return_tensors="pt")
+        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
         if generate:
             tokens, logits = self.generate_infer(model, inputs, **kwargs)
         else:
             tokens, logits = self.parallel_infer(model, inputs, **kwargs)
+        tokens, logits = tokens.cpu(), logits.cpu()
 
         assert tokens.shape[0] == 1, f"expected single batch dimension tokens, received dimension {tokens.shape[0]}"
         assert logits.shape[0] == 1, f"expected single batch dimension logits, received dimension {logits.shape[0]}"

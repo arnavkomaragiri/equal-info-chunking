@@ -1,21 +1,25 @@
-[tool.poetry]
+[tool.pdm.build]
+includes = []
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+
+[project]
+authors = [
+    {name = "Arnav Komaragiri", email = "komaraac@mail.uc.edu"},
+]
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+dependencies = [
+    "transformers<5.0.0,>=4.46.0",
+    "torch<3.0.0,>=2.5.0",
+    "torchtyping<1.0.0,>=0.1.5",
+    "bitsandbytes<1.0.0,>=0.44.1",
+    "accelerate<2.0.0,>=1.1.1",
+    "matplotlib<4.0.0,>=3.9.2",
+]
 name = "equal-info-chunking"
 version = "0.1.0"
 description = ""
-authors = ["Arnav Komaragiri <komaraac@mail.uc.edu>"]
-license = "Apache-2.0"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.10"
-transformers = "^4.46.0"
-torch = "^2.5.0"
-torchtyping = "^0.1.5"
-bitsandbytes = "^0.44.1"
-accelerate = "^1.1.1"
-matplotlib = "^3.9.2"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
